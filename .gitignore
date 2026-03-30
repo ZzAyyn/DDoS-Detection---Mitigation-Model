@@ -1,0 +1,5 @@
+venv/
+*png
+output/
+dataset/
+dataset/cicddos2019_dataset.csv
