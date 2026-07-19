@@ -33,6 +33,7 @@ print("=" * 70)
 print("STEP 1: Loading and Exploring the Dataset")
 print("=" * 70)
 
+
 DATASET_PATH = "../dataset/cicddos2019_dataset.csv"  
 
 print(f"\nLoading dataset from: {DATASET_PATH}")
@@ -42,10 +43,11 @@ print(f"\nDataset Shape: {df.shape}")
 print(f"Total Rows: {df.shape[0]:,}")
 print(f"Total Columns: {df.shape[1]}")
 
+# Show first few rows
 print(f"\nFirst 5 rows:")
 print(df.head())
 
-# Show column names
+# Show column names 
 print(f"\nColumn Names ({len(df.columns)} total):")
 for i, col in enumerate(df.columns):
     print(f"  {i+1}. {col}")
@@ -54,7 +56,7 @@ for i, col in enumerate(df.columns):
 print(f"\nData Types:")
 print(df.dtypes.value_counts())
 
-# Show the label column 
+
 label_candidates = [col for col in df.columns if "label" in col.lower()]
 print(f"\nPossible label columns found: {label_candidates}")
 
@@ -82,6 +84,8 @@ print("\n" + "=" * 70)
 print("STEP 2: Data Preprocessing (Cleaning)")
 print("=" * 70)
 
+# 2a. Drop columns that are NOT useful for ML
+
 columns_to_drop = []
 for col in ["Flow ID", "Source IP", "Destination IP", "Timestamp",
             "SimillarHTTP", "Unnamed: 0", "Class"]:
@@ -91,16 +95,16 @@ for col in ["Flow ID", "Source IP", "Destination IP", "Timestamp",
 print(f"\nDropping non-useful columns: {columns_to_drop}")
 df.drop(columns=columns_to_drop, inplace=True, errors="ignore")
 
-# Convert all feature columns to numeric (some may be strings)
+# 2b. Convert all feature columns to numeric (some may be strings)
 feature_cols = [col for col in df.columns if col != LABEL_COL]
 for col in feature_cols:
     df[col] = pd.to_numeric(df[col], errors="coerce")
 
-# Handle infinite values — replace with NaN, then handle
+# 2c. Handle infinite values — replace with NaN, then handle
 print(f"\nInfinite values found: {np.isinf(df.select_dtypes(include=[np.number])).sum().sum()}")
 df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
-# Handle missing values
+# 2d. Handle missing values
 print(f"Missing values found: {df.isnull().sum().sum()}")
 
 # Show columns with missing values
@@ -110,7 +114,7 @@ if len(missing_cols) > 0:
     print(f"\nColumns with missing values:")
     print(missing_cols)
 
-# Drop rows with missing values
+# Drop rows with missing values (safest approach for SVM)
 rows_before = len(df)
 df.dropna(inplace=True)
 rows_after = len(df)
@@ -118,7 +122,8 @@ print(f"\nRows before cleaning: {rows_before:,}")
 print(f"Rows after cleaning:  {rows_after:,}")
 print(f"Rows removed: {rows_before - rows_after:,}")
 
-
+# 2e. Convert labels to binary for Binary Classification
+#     BENIGN = 0, All DDoS attacks = 1
 print(f"\nConverting labels to binary (BENIGN=0, DDoS=1)...")
 print(f"Original labels: {df[LABEL_COL].unique()}")
 
@@ -131,47 +136,108 @@ print(f"  1 = DDoS (Attack Traffic)")
 
 
 # ============================================================================
-# STEP 3: Feature Selection
+# STEP 3: Feature Selection (Domain-Knowledge-Driven)
 # ============================================================================
 print("\n" + "=" * 70)
-print("STEP 3: Feature Selection")
+print("STEP 3: Feature Selection (Domain-Knowledge-Driven)")
 print("=" * 70)
 
-# Separate features (X) and labels (y)
-X = df.drop(columns=[LABEL_COL, "Binary_Label"])
+
+# Separate all features and labels first
+X_all = df.drop(columns=[LABEL_COL, "Binary_Label"])
 y = df["Binary_Label"]
+total_features_before = X_all.shape[1]
 
-print(f"\nFeature matrix shape: {X.shape}")
-print(f"Label vector shape: {y.shape}")
+print(f"\nTotal features available before selection: {total_features_before}")
 
-# Remove any remaining non-numeric columns
-non_numeric = X.select_dtypes(exclude=[np.number]).columns.tolist()
-if non_numeric:
-    print(f"\nRemoving non-numeric columns: {non_numeric}")
-    X.drop(columns=non_numeric, inplace=True)
 
-# Remove constant features (features that have only one value — useless)
-constant_cols = [col for col in X.columns if X[col].nunique() <= 1]
-if constant_cols:
-    print(f"Removing constant features: {constant_cols}")
-    X.drop(columns=constant_cols, inplace=True)
+PROTOCOL_FEATURES = [
+    "Protocol",            # Transport protocol identifier (TCP/UDP/ICMP)
+    "SYN Flag Count",      # SYN flood detection — abnormally high in attacks
+    "ACK Flag Count",      # ACK flood / incomplete handshake detection
+    "Fwd PSH Flags",       # Push flag behavior in forward direction
+    "Fwd Header Length",   # Forward packet header size (crafted packet indicator)
+    "Bwd Header Length",   # Backward packet header size (asymmetry indicator)
+    "Init Fwd Win Bytes",  # Initial TCP window size (tool fingerprinting)
+]
 
-# Remove highly correlated features (keep one of each pair with >0.95 correlation)
-print(f"\nRemoving highly correlated features (threshold > 0.95)...")
-corr_matrix = X.corr().abs()
-upper_triangle = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-high_corr_cols = [col for col in upper_triangle.columns if any(upper_triangle[col] > 0.95)]
-print(f"Highly correlated features to remove: {len(high_corr_cols)}")
-X.drop(columns=high_corr_cols, inplace=True)
+STATISTICAL_FEATURES = [
+    "Total Fwd Packets",       # Forward packet count (flood volume)
+    "Total Backward Packets",  # Backward packet count (asymmetry detection)
+    "Fwd Packets Length Total", # Total forward bytes (attack payload volume)
+    "Fwd Packet Length Max",   # Largest forward packet (bandwidth exhaustion)
+    "Fwd Packet Length Min",   # Smallest forward packet (minimal packet floods)
+    "Fwd Packet Length Std",   # Forward packet size variation (uniformity check)
+    "Bwd Packet Length Mean",  # Average backward packet size (response indicator)
+    "Flow Bytes/s",            # Throughput rate (volumetric spike detection)
+    "Flow Packets/s",          # Packet rate (packets-per-second anomaly)
+]
 
-print(f"\nFinal number of features: {X.shape[1]}")
-print(f"Features used:")
-for i, col in enumerate(X.columns):
-    print(f"  {i+1}. {col}")
+
+BEHAVIORAL_FEATURES = [
+    "Flow Duration",    # Total flow duration (burst vs sustained pattern)
+    "Flow IAT Mean",    # Mean packet inter-arrival time (rapid = DDoS)
+    "Flow IAT Std",     # Inter-arrival time variation (uniform = DDoS)
+    "Bwd IAT Mean",     # Backward inter-arrival time (server response timing)
+    "Down/Up Ratio",    # Download/upload asymmetry (key DDoS indicator)
+    "Active Mean",      # Mean active time (continuous = DDoS)
+    "Active Std",       # Active time variation (uniform = DDoS)
+]
+
+# =======================================================================
+# COMBINE ALL SELECTED FEATURES
+# =======================================================================
+SELECTED_FEATURES = PROTOCOL_FEATURES + STATISTICAL_FEATURES + BEHAVIORAL_FEATURES
+
+# Verify all selected features exist in the dataset
+print(f"\nVerifying selected features exist in dataset...")
+missing_features = [f for f in SELECTED_FEATURES if f not in X_all.columns]
+available_features = [f for f in SELECTED_FEATURES if f in X_all.columns]
+
+if missing_features:
+    print(f"\n  WARNING: The following expected features are MISSING from the dataset:")
+    for f in missing_features:
+        print(f"    - {f}")
+    print(f"  These features will be skipped. Proceeding with {len(available_features)} features.")
+else:
+    print(f"  All {len(SELECTED_FEATURES)} selected features found in dataset.")
+
+# Filter X to only use selected features
+X = X_all[available_features]
+
+# =======================================================================
+# SUMMARY OF DOMAIN-KNOWLEDGE FEATURE SELECTION
+# =======================================================================
+print(f"\n{'='*60}")
+print(f"  FEATURE SELECTION SUMMARY (Domain-Knowledge-Driven)")
+print(f"{'='*60}")
+
+print(f"\n  GROUP 1 — PROTOCOL FEATURES ({len(PROTOCOL_FEATURES)} features)")
+print(f"  Purpose: Network protocol rules, connection setup, TCP flags")
+for i, f in enumerate(PROTOCOL_FEATURES):
+    status = "OK" if f in X.columns else "MISSING"
+    print(f"    {i+1}. {f} [{status}]")
+
+print(f"\n  GROUP 2 — STATISTICAL FEATURES ({len(STATISTICAL_FEATURES)} features)")
+print(f"  Purpose: Volume, size, and rate measurements of traffic flows")
+for i, f in enumerate(STATISTICAL_FEATURES):
+    status = "OK" if f in X.columns else "MISSING"
+    print(f"    {i+1}. {f} [{status}]")
+
+print(f"\n  GROUP 3 — BEHAVIORAL FEATURES ({len(BEHAVIORAL_FEATURES)} features)")
+print(f"  Purpose: Timing patterns, inter-arrival intervals, flow behavior")
+for i, f in enumerate(BEHAVIORAL_FEATURES):
+    status = "OK" if f in X.columns else "MISSING"
+    print(f"    {i+1}. {f} [{status}]")
+
+print(f"\n  Total features BEFORE selection: {total_features_before}")
+print(f"  Total features AFTER selection:  {len(available_features)}")
+print(f"  Features removed: {total_features_before - len(available_features)}")
+print(f"{'='*60}")
 
 
 # ============================================================================
-# STEP 4: Train-Test Split
+# STEP 4: Train-Test Split (80/20 — Stratified)
 # ============================================================================
 print("\n" + "=" * 70)
 print("STEP 4: Train-Test Split (80% Training, 20% Testing)")
@@ -182,7 +248,7 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y,
     test_size=0.2,       # 20% for testing
     random_state=42,     # For reproducibility
-    stratify=y           
+    stratify=y           # Maintain class balance in both sets
 )
 
 print(f"\nTraining set: {X_train.shape[0]:,} samples ({X_train.shape[0]/len(X)*100:.1f}%)")
@@ -200,6 +266,7 @@ print(y_test.value_counts())
 print("\n" + "=" * 70)
 print("STEP 5: Feature Scaling using StandardScaler")
 print("=" * 70)
+
 
 
 scaler = StandardScaler()
@@ -371,15 +438,15 @@ print("\n" + "=" * 70)
 print("STEP 9: Saving Trained Model and Scaler")
 print("=" * 70)
 
-# Save the model 
+# Save the model — you'll load this in your mitigation script later
 joblib.dump(svm_model, f"{OUTPUT_DIR}/svm_ddos_model.pkl")
 print(f"Saved: svm_ddos_model.pkl")
 
-# Save the scaler 
+# Save the scaler — needed to scale new incoming traffic the same way
 joblib.dump(scaler, f"{OUTPUT_DIR}/scaler.pkl")
 print(f"Saved: scaler.pkl")
 
-# Save the feature names 
+# Save the feature names — needed to know which features to extract
 feature_names = X.columns.tolist()
 joblib.dump(feature_names, f"{OUTPUT_DIR}/feature_names.pkl")
 print(f"Saved: feature_names.pkl")
@@ -410,6 +477,7 @@ with open(f"{OUTPUT_DIR}/evaluation_results.txt", "w") as f:
     f.write(f"Classification Report:\n")
     f.write(classification_report(y_test, y_pred, target_names=["BENIGN", "DDoS"]))
 print(f"Saved: evaluation_results.txt")
+
 
 print("\n" + "=" * 70)
 print("ALL DONE! Check the 'output' folder for:")

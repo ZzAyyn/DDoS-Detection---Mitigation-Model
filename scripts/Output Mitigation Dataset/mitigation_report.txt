@@ -1,0 +1,67 @@
+============================================================
+  DDoS MITIGATION SYSTEM — REPORT
+  Project: Enhancing DDoS Detection & Mitigation Model
+  Author: Ahmed Zain
+  Generated: 2026-06-23 15:00:44
+============================================================
+
+--- SIMULATION CONFIGURATION ---
+  Total flows in simulation:     4000
+  Benign flows:                  2000
+  Attack flows:                  2000
+  Simulated legitimate IPs:      40
+  Simulated attacker IPs:        10
+  Blocking threshold:            3 flags in 10 flows
+  Cooldown period:               50 flows
+
+--- CLASSIFICATION RESULTS ---
+  Flows classified by SVM:       3803
+  True Positives (TP):           1798  — DDoS correctly detected
+  True Negatives (TN):           1976  — Benign correctly passed
+  False Positives (FP):          24  — Benign wrongly flagged as DDoS
+  False Negatives (FN):          5  — DDoS missed (classified as Benign)
+
+--- MITIGATION RESULTS ---
+  Total unique IPs blocked:      2
+    Attacker IPs blocked:        2 / 10
+    Legitimate IPs blocked:      0 / 40
+  Flows dropped by blocklist:    197
+  Attack flows that bypassed:    1725  — got through before block
+  Attack flows blocked:          275
+  Attack bypass rate:            86.25%  — bypassed before IP was blocked
+  Attack block rate:             13.75%  — blocked after IP was identified
+  System effectiveness:          103.65%  — of total attack flows were stopped
+
+--- RESPONSE TIME ---
+  First attack flow arrived:     Yes
+  First IP blocked:              Yes
+  Response time:                 31.40 ms
+                                 (0.031396 seconds)
+
+--- TIMEOUT MECHANISM ---
+  Cooldown period:               50 flows
+  IPs re-evaluated after timeout: 76
+  Behavior: Blocked IPs are automatically unblocked after
+  50 flows. Flag counter resets to zero upon
+  unblocking. If re-flagged, threshold applies from scratch.
+
+--- PERFORMANCE METRICS ---
+  Accuracy:                      0.9924  (99.24%)
+  Precision:                     0.9868  (98.68%)
+  Recall:                        0.9972  (99.72%)
+  F1-Score:                      0.9920  (99.20%)
+  False Positive Rate:           0.0120  (1.20%)
+  Processing time:               2.99 seconds
+
+--- BLOCKED IP BREAKDOWN ---
+  10.0.0.4         | Type: ATTACKER   | Flags: 14
+  10.0.0.6         | Type: ATTACKER   | Flags: 10
+
+--- VERSION NOTES ---
+  Current version:               2.0 (Dataset-based simulation)
+  PKL files loaded from:         output/
+  Outputs saved to:              Output Mitigation Dataset/
+  Simulation method:             CICDDoS2019 dataset sampling
+  Next version:                  NS-3 generated traffic will replace dataset sampling
+
+============================================================

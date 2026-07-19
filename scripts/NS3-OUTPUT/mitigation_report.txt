@@ -1,0 +1,74 @@
+============================================================
+  DDoS MITIGATION SYSTEM - REPORT (Version 2)
+  Project: Enhancing DDoS Detection & Mitigation Model
+  Author: Ahmed Zain
+  Generated: 2026-06-23 21:38:57
+============================================================
+
+--- SIMULATION CONFIGURATION ---
+  Traffic source:                NS-3 network simulation
+  Topology:                      CSMA LAN (9 nodes)
+  Attacker nodes:                10.1.1.1, 10.1.1.2, 10.1.1.3
+                                 (20 TCP SYN flood flows each)
+  Victim node:                   10.1.1.4 (PacketSink port 80)
+  Legitimate nodes:              10.1.1.5 - 10.1.1.9
+                                 (2 normal TCP flows each)
+  Total flows in simulation:     215
+  Benign flows:                  180
+  Attack flows:                  35
+  Legitimate IPs:                6
+  Attacker IPs:                  3
+  Blocking threshold:            3 flags in 10 flows
+  Cooldown period:               50 flows
+
+--- CLASSIFICATION RESULTS ---
+  Flows classified by SVM:       215
+  True Positives (TP):           34  - DDoS correctly detected
+  True Negatives (TN):           180  - Benign correctly passed
+  False Positives (FP):          0  - Benign wrongly flagged as DDoS
+  False Negatives (FN):          1  - DDoS missed (classified as Benign)
+
+--- MITIGATION RESULTS ---
+  Total unique IPs blocked:      0
+    Attacker IPs blocked:        0 / 3
+    Legitimate IPs blocked:      0 / 6
+  Flows dropped by blocklist:    0
+  Attack flows that bypassed:    35  - got through before block
+  Attack flows blocked:          0
+  Attack bypass rate:            100.00%  - bypassed before IP was blocked
+  Attack block rate:             0.00%  - blocked after IP was identified
+  System effectiveness:          97.14%  - of total attack flows were stopped
+                                 (either correctly classified as DDoS or dropped by blocklist)
+
+--- RESPONSE TIME ---
+  Response time:                 N/A (no blocks triggered)
+
+--- TIMEOUT MECHANISM ---
+  Cooldown period:               50 flows
+  IPs re-evaluated after timeout: 0
+  Behavior: Blocked IPs are automatically unblocked after
+  50 flows. Flag counter resets to zero upon
+  unblocking. If re-flagged, threshold applies from scratch.
+
+--- PERFORMANCE METRICS ---
+  Accuracy:                      0.9953  (99.53%)
+  Precision:                     1.0000  (100.00%)
+  Recall:                        0.9714  (97.14%)
+  F1-Score:                      0.9855  (98.55%)
+  False Positive Rate:           0.0000  (0.00%)
+  Processing time:               0.24 seconds
+
+--- BLOCKED IP BREAKDOWN ---
+  No IPs were blocked.
+
+--- VERSION NOTES ---
+  Current version:               2.0 (NS-3 Network Simulation)
+  Simulation method:             NS-3.43 distributed SYN flood on CSMA LAN
+  Traffic source:                PCAP -> pcap_to_csv.py -> CSV
+  Model:                         SVM retrained on CICDDoS2019 + NS-3 data
+  Improvement over V1:           Real network topology with multiple
+                                 attackers and legitimate clients replaces
+                                 dataset sampling with simulated IPs
+  Previous version:              1.0 (CICDDoS2019 dataset sampling)
+
+============================================================

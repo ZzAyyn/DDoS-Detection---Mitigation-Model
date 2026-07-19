@@ -1,5 +1,8 @@
+# Virtual environment
 venv/
-*png
-output/
+
+# Raw dataset (large file)
 dataset/
-dataset/cicddos2019_dataset.csv
+
+# Trained model files
+*.pkl

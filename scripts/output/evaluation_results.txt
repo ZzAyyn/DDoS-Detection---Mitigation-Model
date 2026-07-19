@@ -1,0 +1,33 @@
+DDoS Detection Model — Evaluation Results
+==================================================
+Model: Support Vector Machine (SVM)
+Kernel: RBF (Radial Basis Function)
+Dataset: CICDDoS2019
+Split: 80% Training / 20% Testing (Stratified)
+Training Samples: 50,000
+Testing Samples: 86,275
+Features Used: 23
+
+Results:
+  Accuracy:            0.9942 (99.42%)
+  Precision:           0.9961 (99.61%)
+  Recall:              0.9964 (99.64%)
+  F1-Score:            0.9963 (99.63%)
+  False Positive Rate: 0.0133 (1.33%)
+  ROC AUC:             0.9994
+  Training Time:       14.58 seconds
+  Prediction Time:     9.48 seconds
+
+Confusion Matrix:
+  TN=19,306  FP=260
+  FN=240  TP=66,469
+
+Classification Report:
+              precision    recall  f1-score   support
+
+      BENIGN       0.99      0.99      0.99     19566
+        DDoS       1.00      1.00      1.00     66709
+
+    accuracy                           0.99     86275
+   macro avg       0.99      0.99      0.99     86275
+weighted avg       0.99      0.99      0.99     86275
