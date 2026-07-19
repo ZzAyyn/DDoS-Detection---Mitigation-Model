@@ -1,8 +1,5 @@
 # Enhancing DDoS Detection & Mitigation Model for Network
 
-## Final Year Project — Ahmed Zain (s082256)
-## Supervisor: Ibrahim Thoriq | MNU FEST | July 2026
-
 ---
 
 ## Project Structure
